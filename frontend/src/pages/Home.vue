@@ -1,16 +1,24 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { mockPosts } from '@/data/mockPosts'
+import { postsApi } from '@/api/posts'
+import type { Post } from '@/types'
 
 const router = useRouter()
-const recentPosts = mockPosts.slice(0, 3)
+const recentPosts = ref<Post[]>([])
 const heroVisible = ref(false)
 const scrollY = ref(0)
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('scroll', onScroll, { passive: true })
   requestAnimationFrame(() => { heroVisible.value = true })
+
+  try {
+    const response = await postsApi.getPosts(1, 3)
+    recentPosts.value = response.data.filter(p => p.published)
+  } catch (error) {
+    console.error('加载文章失败:', error)
+  }
 })
 
 onUnmounted(() => {
@@ -117,16 +125,15 @@ function goToBlog() {
         </div>
 
         <!-- 非对称网格 -->
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div v-if="recentPosts.length" class="grid grid-cols-1 md:grid-cols-12 gap-6">
           <!-- 大卡 -->
           <div
             class="md:col-span-7 card-glass p-1 cursor-pointer group"
             @click="goToPost(recentPosts[0].id)"
           >
-            <div class="rounded-xl overflow-hidden bg-muted aspect-16/10">
+            <div v-if="recentPosts[0].cover_image" class="rounded-xl overflow-hidden bg-muted aspect-16/10">
               <img
-                v-if="recentPosts[0].images.length"
-                :src="recentPosts[0].images[0].url"
+                :src="recentPosts[0].cover_image"
                 :alt="recentPosts[0].title"
                 class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-out"
                 loading="lazy"
@@ -134,7 +141,7 @@ function goToBlog() {
             </div>
             <div class="p-5">
               <div class="flex items-center gap-2 text-xs mb-2" style="color: #8C7E74;">
-                <time>{{ recentPosts[0].createdAt }}</time>
+                <time>{{ new Date(recentPosts[0].created_at).toLocaleDateString('zh-CN') }}</time>
                 <span v-for="tag in recentPosts[0].tags.slice(0, 2)" :key="tag" class="tag-pill">{{ tag }}</span>
               </div>
               <h3
@@ -143,7 +150,7 @@ function goToBlog() {
               >
                 {{ recentPosts[0].title }}
               </h3>
-              <p class="text-sm line-clamp-2" style="color: #8C7E74;">{{ recentPosts[0].excerpt }}</p>
+              <p class="text-sm line-clamp-2" style="color: #8C7E74;">{{ recentPosts[0].summary || recentPosts[0].content.replace(/<[^>]+>/g, '').slice(0, 120) }}</p>
             </div>
           </div>
 
@@ -156,11 +163,11 @@ function goToBlog() {
               @click="goToPost(post.id)"
             >
               <div
-                v-if="post.images.length"
+                v-if="post.cover_image"
                 class="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-muted"
               >
                 <img
-                  :src="post.images[0].thumbnail"
+                  :src="post.cover_image"
                   :alt="post.title"
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   loading="lazy"
@@ -168,7 +175,7 @@ function goToBlog() {
               </div>
               <div class="flex-1 min-w-0 flex flex-col justify-center">
                 <div class="text-xs mb-1" style="color: #8C7E74;">
-                  <time>{{ post.createdAt }}</time>
+                  <time>{{ new Date(post.created_at).toLocaleDateString('zh-CN') }}</time>
                 </div>
                 <h3
                   class="font-semibold text-foreground group-hover:text-primary transition-colors duration-300 line-clamp-2 text-sm"
@@ -176,7 +183,7 @@ function goToBlog() {
                 >
                   {{ post.title }}
                 </h3>
-                <p class="text-xs line-clamp-1 mt-1" style="color: #BFB3A3;">{{ post.excerpt }}</p>
+                <p class="text-xs line-clamp-1 mt-1" style="color: #BFB3A3;">{{ post.summary || post.content.replace(/<[^>]+>/g, '').slice(0, 80) }}</p>
               </div>
             </div>
           </div>

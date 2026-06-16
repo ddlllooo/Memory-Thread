@@ -1,29 +1,55 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { mockPosts } from '@/data/mockPosts'
+import { postsApi } from '@/api/posts'
+import type { Post } from '@/types'
 
 const router = useRouter()
+const posts = ref<Post[]>([])
 const selectedTag = ref<string | null>(null)
 const scrollY = ref(0)
+const loading = ref(true)
 
-onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }))
+onMounted(async () => {
+  window.addEventListener('scroll', onScroll, { passive: true })
+  await loadPosts()
+})
 onUnmounted(() => window.removeEventListener('scroll', onScroll))
 function onScroll() { scrollY.value = window.scrollY }
 
+async function loadPosts() {
+  loading.value = true
+  try {
+    const response = await postsApi.getPosts(1, 50)
+    posts.value = response.data.filter(p => p.published)
+  } catch (error) {
+    console.error('加载文章失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
 const allTags = computed(() => {
   const tags = new Set<string>()
-  mockPosts.forEach(p => p.tags.forEach(t => tags.add(t)))
+  posts.value.forEach(p => p.tags.forEach(t => tags.add(t)))
   return Array.from(tags)
 })
 
 const filteredPosts = computed(() => {
-  if (!selectedTag.value) return mockPosts
-  return mockPosts.filter(p => p.tags.includes(selectedTag.value!))
+  if (!selectedTag.value) return posts.value
+  return posts.value.filter(p => p.tags.includes(selectedTag.value!))
 })
 
 function goToPost(id: string) {
   router.push(`/post/${id}`)
+}
+
+function formatDate(date: string) {
+  return new Date(date).toLocaleDateString('zh-CN')
+}
+
+function getExcerpt(post: Post) {
+  return post.summary || post.content.replace(/<[^>]+>/g, '').slice(0, 150)
 }
 </script>
 
@@ -55,7 +81,7 @@ function goToPost(id: string) {
     </section>
 
     <!-- 标签筛选 -->
-    <section class="px-6 pb-8">
+    <section v-if="allTags.length" class="px-6 pb-8">
       <div class="max-w-4xl mx-auto flex flex-wrap gap-2">
         <button
           :class="[
@@ -80,8 +106,15 @@ function goToPost(id: string) {
       </div>
     </section>
 
+    <!-- 加载状态 -->
+    <section v-if="loading" class="px-6 pb-24">
+      <div class="max-w-4xl mx-auto space-y-5">
+        <div v-for="i in 4" :key="i" class="h-28 bg-muted rounded-2xl animate-pulse" />
+      </div>
+    </section>
+
     <!-- 文章列表 -->
-    <section class="px-6 pb-24">
+    <section v-else class="px-6 pb-24">
       <div class="max-w-4xl mx-auto space-y-5">
         <div
           v-for="(post, i) in filteredPosts"
@@ -93,10 +126,10 @@ function goToPost(id: string) {
           @click="goToPost(post.id)"
         >
           <!-- 大卡 -->
-          <div v-if="i % 3 === 0 && post.images.length" class="flex flex-col md:flex-row">
+          <div v-if="i % 3 === 0 && post.cover_image" class="flex flex-col md:flex-row">
             <div class="md:w-2/5 aspect-video md:aspect-auto overflow-hidden rounded-t-xl md:rounded-l-xl md:rounded-tr-none bg-muted">
               <img
-                :src="post.images[0].url"
+                :src="post.cover_image"
                 :alt="post.title"
                 class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-out"
                 loading="lazy"
@@ -104,7 +137,7 @@ function goToPost(id: string) {
             </div>
             <div class="flex-1 p-6 flex flex-col justify-center">
               <div class="flex items-center gap-2 text-xs mb-3" style="color: #8C7E74;">
-                <time>{{ post.createdAt }}</time>
+                <time>{{ formatDate(post.created_at) }}</time>
                 <span v-for="tag in post.tags" :key="tag" class="tag-pill">{{ tag }}</span>
               </div>
               <h2
@@ -114,7 +147,7 @@ function goToPost(id: string) {
                 {{ post.title }}
               </h2>
               <p class="text-sm line-clamp-3 leading-relaxed" style="color: #8C7E74;">
-                {{ post.excerpt }}
+                {{ getExcerpt(post) }}
               </p>
             </div>
           </div>
@@ -122,11 +155,11 @@ function goToPost(id: string) {
           <!-- 普通卡片 -->
           <div v-else class="p-6 flex flex-col md:flex-row gap-5">
             <div
-              v-if="post.images.length"
+              v-if="post.cover_image"
               class="md:w-40 h-28 shrink-0 rounded-xl overflow-hidden bg-muted"
             >
               <img
-                :src="post.images[0].thumbnail"
+                :src="post.cover_image"
                 :alt="post.title"
                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 loading="lazy"
@@ -134,7 +167,7 @@ function goToPost(id: string) {
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-xs mb-2" style="color: #8C7E74;">
-                <time>{{ post.createdAt }}</time>
+                <time>{{ formatDate(post.created_at) }}</time>
               </div>
               <h2
                 class="font-semibold text-foreground group-hover:text-primary transition-colors duration-300 mb-1.5 line-clamp-2"
@@ -142,7 +175,7 @@ function goToPost(id: string) {
               >
                 {{ post.title }}
               </h2>
-              <p class="text-sm line-clamp-2 mb-3" style="color: #8C7E74;">{{ post.excerpt }}</p>
+              <p class="text-sm line-clamp-2 mb-3" style="color: #8C7E74;">{{ getExcerpt(post) }}</p>
               <div class="flex flex-wrap gap-1.5">
                 <span v-for="tag in post.tags" :key="tag" class="tag-pill">{{ tag }}</span>
               </div>

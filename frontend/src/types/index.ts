@@ -7,9 +7,8 @@ export interface Image {
   description?: string
   width: number
   height: number
-  aspectRatio: number
-  createdAt: string
-  updatedAt: string
+  created_at: string
+  updated_at: string
 }
 
 // 文章/帖子类型
@@ -17,13 +16,12 @@ export interface Post {
   id: string
   title: string
   content: string
-  excerpt?: string
-  coverImage?: Image
-  images: Image[]
+  summary?: string
+  cover_image?: string
   tags: string[]
   published: boolean
-  createdAt: string
-  updatedAt: string
+  created_at: string
+  updated_at: string
 }
 
 // 用户类型
@@ -58,5 +56,5 @@ export interface PaginatedResponse<T> {
   total: number
   page: number
   limit: number
-  totalPages: number
+  total_pages: number
 }

@@ -45,15 +45,12 @@ class Post(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=False)
-    excerpt = Column(String(500), nullable=True)
-    cover_image_id = Column(String(36), ForeignKey("images.id"), nullable=True)
+    summary = Column(String(500), nullable=True)
+    cover_image = Column(String(500), nullable=True)
+    tags = Column(Text, nullable=True)  # JSON 字符串，如 '["技术","Vue"]'
     published = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # 关系
-    cover_image = relationship("Image", foreign_keys=[cover_image_id])
-    images = relationship("Image", back_populates="post", foreign_keys="Image.post_id")
 
 
 class Image(Base):
@@ -66,9 +63,15 @@ class Image(Base):
     description = Column(Text, nullable=True)
     width = Column(Integer, nullable=True)
     height = Column(Integer, nullable=True)
-    post_id = Column(String(36), ForeignKey("posts.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # 关系
-    post = relationship("Post", back_populates="images", foreign_keys=[post_id])
+
+class Visit(Base):
+    __tablename__ = "visits"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    path = Column(String(500), nullable=True)
+    ip_hash = Column(String(64), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

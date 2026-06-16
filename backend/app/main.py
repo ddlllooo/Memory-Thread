@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.models.database import engine, Base
-from app.routers import auth, posts, images
+from app.routers import auth, posts, images, stats
 
 settings = get_settings()
 
@@ -31,6 +31,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(posts.router, prefix="/api/v1")
 app.include_router(images.router, prefix="/api/v1")
+app.include_router(stats.router, prefix="/api/v1")
 
 # 静态文件服务（上传的图片）
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)

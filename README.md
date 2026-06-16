@@ -47,7 +47,7 @@ pip install -r requirements.txt
 python init_db.py
 
 # 启动后端
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8080
 ```
 
 ### 3. 启动前端
@@ -65,8 +65,8 @@ npm run dev
 ### 4. 访问
 
 - 前端：http://localhost:5173
-- 后端 API：http://localhost:8000
-- API 文档：http://localhost:8000/docs
+- 后端 API：http://localhost:8080
+- API 文档：http://localhost:8080/docs
 
 ## 默认管理员账户
 

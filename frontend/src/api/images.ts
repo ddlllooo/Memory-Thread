@@ -16,11 +16,8 @@ export const imagesApi = {
     if (title) {
       formData.append('title', title)
     }
-    return client.post('/images', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    }).then(res => res.data)
+    // 不要显式设置 Content-Type，让浏览器自动设置 boundary
+    return client.post('/images', formData).then(res => res.data)
   },
 
   deleteImage(id: string): Promise<void> {

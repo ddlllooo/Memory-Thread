@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { mockPosts } from '@/data/mockPosts'
+import { postsApi } from '@/api/posts'
 import type { Post } from '@/types'
 
 const route = useRoute()
@@ -11,11 +11,17 @@ const post = ref<Post | null>(null)
 const scrollY = ref(0)
 const readProgress = ref(0)
 
-onMounted(() => {
-  const id = route.params.id as string
-  post.value = mockPosts.find(p => p.id === id) || null
-  loading.value = false
+onMounted(async () => {
   window.addEventListener('scroll', onScroll, { passive: true })
+  const id = route.params.id as string
+  try {
+    post.value = await postsApi.getPost(id)
+  } catch (error) {
+    console.error('加载文章失败:', error)
+    post.value = null
+  } finally {
+    loading.value = false
+  }
 })
 
 onUnmounted(() => {
@@ -30,6 +36,10 @@ function onScroll() {
 
 function goBack() {
   router.push('/blog')
+}
+
+function formatDate(date: string) {
+  return new Date(date).toLocaleDateString('zh-CN')
 }
 </script>
 
@@ -63,13 +73,13 @@ function goBack() {
     <article v-else>
       <!-- 封面 HERO -->
       <section
-        v-if="post.images.length"
+        v-if="post.cover_image"
         class="relative h-[50vh] md:h-[60vh] overflow-hidden"
       >
         <div
           class="absolute inset-0 bg-cover bg-center"
           :style="{
-            backgroundImage: `url(${post.images[0].url})`,
+            backgroundImage: `url(${post.cover_image})`,
             transform: `translateY(${scrollY * 0.2}px) scale(${1 + scrollY * 0.0002})`,
           }"
         />
@@ -79,11 +89,11 @@ function goBack() {
       <!-- 正文区域 -->
       <section class="px-6 pb-24">
         <div class="max-w-3xl mx-auto">
-          <!-- 标题卡：有封面时上浮覆盖，无封面时正常顶部间距 -->
+          <!-- 标题卡 -->
           <div
             :class="[
               'glass-strong rounded-2xl p-8 md:p-10 relative z-10 mb-10',
-              post.images.length ? '-mt-16' : 'mt-20',
+              post.cover_image ? '-mt-16' : 'mt-20',
             ]"
           >
             <!-- 返回按钮 -->
@@ -102,7 +112,7 @@ function goBack() {
               {{ post.title }}
             </h1>
             <div class="flex items-center gap-3 text-sm" style="color: #8C7E74;">
-              <time>{{ post.createdAt }}</time>
+              <time>{{ formatDate(post.created_at) }}</time>
               <span style="color: #D5CBBD;">·</span>
               <div class="flex flex-wrap gap-1.5">
                 <span v-for="tag in post.tags" :key="tag" class="tag-pill">{{ tag }}</span>

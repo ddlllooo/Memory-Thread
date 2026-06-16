@@ -4,11 +4,15 @@ import { useRoute } from 'vue-router'
 import Lenis from 'lenis'
 import Navbar from '@/components/layout/Navbar.vue'
 import Footer from '@/components/layout/Footer.vue'
+import { statsApi } from '@/api/stats'
 
 const route = useRoute()
 let lenis: Lenis | undefined
 
 onMounted(() => {
+  // 记录首次访问
+  statsApi.recordVisit().catch(() => {})
+
   lenis = new Lenis({
     duration: 1.2,
     easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -29,9 +33,10 @@ onUnmounted(() => {
   lenis?.destroy()
 })
 
-// 路由切换时回到顶部
+// 路由切换时回到顶部并记录访问
 watch(() => route.path, () => {
   lenis?.scrollTo(0, { immediate: true })
+  statsApi.recordVisit().catch(() => {})
 })
 </script>
 

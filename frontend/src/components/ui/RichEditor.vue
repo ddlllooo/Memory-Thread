@@ -9,6 +9,15 @@ import Color from '@tiptap/extension-color'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import Highlight from '@tiptap/extension-highlight'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 const props = defineProps<{
   modelValue: string
@@ -20,6 +29,10 @@ const emit = defineEmits<{
 
 const showColorPicker = ref(false)
 const showHeadingMenu = ref(false)
+
+// 图片 URL 对话框
+const showImageDialog = ref(false)
+const imageUrlInput = ref('')
 
 const presetColors = [
   '#2B221E', '#8C7E74', '#E07A5F', '#8A9A86',
@@ -122,10 +135,16 @@ function insertImage() {
 }
 
 function insertImageUrl() {
-  const url = prompt('请输入图片 URL')
-  if (url) {
-    editor.value?.chain().focus().setImage({ src: url }).run()
+  imageUrlInput.value = ''
+  showImageDialog.value = true
+}
+
+function confirmInsertImage() {
+  if (imageUrlInput.value.trim()) {
+    editor.value?.chain().focus().setImage({ src: imageUrlInput.value.trim() }).run()
   }
+  showImageDialog.value = false
+  imageUrlInput.value = ''
 }
 
 function isActive(name: string, attrs?: Record<string, any>) {
@@ -287,6 +306,26 @@ if (typeof window !== 'undefined') {
     <!-- 编辑区域 -->
     <EditorContent :editor="editor" />
   </div>
+
+  <!-- 图片 URL 对话框 -->
+  <Dialog v-model:open="showImageDialog">
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>插入图片链接</DialogTitle>
+      </DialogHeader>
+      <div class="py-4">
+        <Input
+          v-model="imageUrlInput"
+          placeholder="请输入图片 URL"
+          @keydown.enter="confirmInsertImage"
+        />
+      </div>
+      <DialogFooter>
+        <Button variant="outline" @click="showImageDialog = false">取消</Button>
+        <Button @click="confirmInsertImage">确认插入</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <style scoped>

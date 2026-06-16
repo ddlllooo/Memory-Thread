@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { authApi } from '@/api/auth'
 import type { User, LoginCredentials } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -16,26 +17,16 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
 
     try {
-      // Mock 登录：admin / admin123
-      if (credentials.username === 'admin' && credentials.password === 'admin123') {
-        const mockToken = 'mock-token-' + Date.now()
-        token.value = mockToken
-        sessionStorage.setItem('token', mockToken)
+      const response = await authApi.login(credentials)
+      token.value = response.access_token
+      sessionStorage.setItem('token', response.access_token)
 
-        user.value = {
-          id: '1',
-          username: 'admin',
-          email: 'admin@example.com',
-          role: 'admin',
-        }
+      // 获取用户信息
+      await fetchCurrentUser()
 
-        return true
-      }
-
-      error.value = '用户名或密码错误'
-      return false
+      return true
     } catch (err: any) {
-      error.value = '登录失败'
+      error.value = err.response?.data?.detail || '登录失败'
       return false
     } finally {
       loading.value = false
@@ -45,12 +36,14 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchCurrentUser() {
     if (!token.value) return
 
-    // Mock 用户信息
-    user.value = {
-      id: '1',
-      username: 'admin',
-      email: 'admin@example.com',
-      role: 'admin',
+    try {
+      const userData = await authApi.getCurrentUser()
+      user.value = userData
+    } catch (err) {
+      // token 无效，清除
+      token.value = null
+      sessionStorage.removeItem('token')
+      user.value = null
     }
   }
 
