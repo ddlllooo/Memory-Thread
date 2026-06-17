@@ -187,7 +187,7 @@ function getExcerpt(post: Post) {
         <div v-if="filteredPosts.length === 0" class="text-center py-20">
           <div class="glass rounded-2xl p-12 inline-block">
             <p class="text-lg mb-2" style="color: #8C7E74;">暂无相关文章</p>
-            <button class="btn-ghost text-sm" @click="selectedTag = null">查看全部</button>
+            <button v-if="selectedTag" class="btn-ghost text-sm" @click="selectedTag = null">查看全部</button>
           </div>
         </div>
       </div>

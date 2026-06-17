@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { postsApi } from '@/api/posts'
 import { imagesApi } from '@/api/images'
-import RichEditor from '@/components/ui/RichEditor.vue'
+import CanvasEditor from '@/components/ui/CanvasEditor.vue'
 import {
   Dialog,
   DialogContent,
@@ -337,7 +337,7 @@ function logout() {
             <!-- 富文本编辑器 -->
             <div>
               <label class="text-xs font-medium mb-1.5 block" style="color: #8C7E74;">文章内容</label>
-              <RichEditor v-model="editingPost.content" />
+              <CanvasEditor v-model="editingPost.content" />
             </div>
 
             <!-- 操作栏 -->

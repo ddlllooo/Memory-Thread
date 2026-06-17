@@ -6,7 +6,7 @@ import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import { TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
-import Image from '@tiptap/extension-image'
+import { CustomImage } from '@/extensions/CustomImage'
 import Placeholder from '@tiptap/extension-placeholder'
 import Highlight from '@tiptap/extension-highlight'
 import {
@@ -34,6 +34,25 @@ const showHeadingMenu = ref(false)
 const showImageDialog = ref(false)
 const imageUrlInput = ref('')
 
+// 图片操作状态
+const selectedImage = ref<{ pos: number; node: any; el: HTMLElement } | null>(null)
+const showImageMenu = ref(false)
+const imageMenuPos = ref({ top: 0, left: 0 })
+const imageOverlay = ref<{ top: number; left: number; width: number; height: number } | null>(null)
+
+// 拖拽状态
+const isDragging = ref(false)
+const dragHandle = ref<string | null>(null)
+const dragStart = ref({ x: 0, y: 0, width: 0, height: 0 })
+
+// 图片拖拽移动状态
+const isMoving = ref(false)
+const moveStart = ref({ x: 0, y: 0, left: 0, top: 0 })
+
+// 图片布局类型
+type ImageLayout = 'inline' | 'square' | 'top-bottom' | 'through' | 'absolute'
+const currentLayout = ref<ImageLayout>('inline')
+
 const presetColors = [
   '#2B221E', '#8C7E74', '#E07A5F', '#8A9A86',
   '#C4453E', '#D4A574', '#5B7B6A', '#6B7FA0',
@@ -51,7 +70,7 @@ const editor = useEditor({
     }),
     TextStyle,
     Color,
-    Image.configure({
+    CustomImage.configure({
       inline: true,
       allowBase64: true,
     }),
@@ -151,6 +170,290 @@ function isActive(name: string, attrs?: Record<string, any>) {
   return editor.value?.isActive(name, attrs) ?? false
 }
 
+// 图片操作
+function handleEditorClick(event: MouseEvent) {
+  const target = event.target as HTMLElement
+
+  // 检查点击的是否是图片或图片菜单
+  const isImageClick = target.tagName === 'IMG'
+  const isNodeViewClick = target.closest('.custom-image-node')
+  const isOverlayClick = target.closest('.image-resize-overlay')
+  const isMenuClick = target.closest('.image-menu')
+  const isToolbarClick = target.closest('.toolbar-btn')
+
+  if ((isImageClick || isNodeViewClick) && editor.value) {
+    const imgEl = isImageClick ? target : (isNodeViewClick as HTMLElement).querySelector('img') || target
+    const pos = editor.value.view.posAtDOM(imgEl, 0)
+    const node = editor.value.view.state.doc.nodeAt(pos)
+    if (node && node.type.name === 'customImage') {
+      selectedImage.value = { pos, node, el: imgEl }
+      currentLayout.value = (node.attrs['data-layout'] as ImageLayout) || 'inline'
+      const rect = imgEl.getBoundingClientRect()
+      const editorRect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+      // 显示选中框
+      imageOverlay.value = {
+        top: rect.top - editorRect.top - 2,
+        left: rect.left - editorRect.left - 2,
+        width: rect.width + 4,
+        height: rect.height + 4,
+      }
+      // 显示操作菜单
+      imageMenuPos.value = {
+        top: rect.top - editorRect.top - 44,
+        left: rect.left - editorRect.left + rect.width / 2 - 120,
+      }
+      showImageMenu.value = true
+    }
+  } else if (!isOverlayClick && !isMenuClick && !isToolbarClick) {
+    showImageMenu.value = false
+    selectedImage.value = null
+    imageOverlay.value = null
+  }
+}
+
+function setImageAlign(align: string) {
+  if (!selectedImage.value || !editor.value) return
+  const { pos, node } = selectedImage.value
+  const display = align === 'center' ? 'block' : 'inline-block'
+  const margin = align === 'center' ? '0 auto' : align === 'right' ? '0 0 0 auto' : '0'
+
+  const { view } = editor.value
+  const attrs = { ...node.attrs, style: `display:${display};margin:${margin};` }
+  const tr = view.state.tr.setNodeMarkup(pos, undefined, attrs)
+  view.dispatch(tr)
+  showImageMenu.value = false
+}
+
+function deleteImage() {
+  if (!selectedImage.value || !editor.value) return
+  const { pos, node } = selectedImage.value
+  const { view } = editor.value
+  const tr = view.state.tr.delete(pos, pos + node.nodeSize)
+  view.dispatch(tr)
+  showImageMenu.value = false
+  selectedImage.value = null
+  imageOverlay.value = null
+}
+
+// 设置图片布局
+function setImageLayout(layout: ImageLayout) {
+  if (!selectedImage.value || !editor.value) return
+  const { pos, node } = selectedImage.value
+
+  // 清除位置数据（如果不是绝对定位）
+  const attrs: Record<string, any> = {
+    ...node.attrs,
+    'data-layout': layout,
+  }
+
+  if (layout !== 'absolute') {
+    // 切换到非绝对定位布局时，清除位置数据
+    attrs['data-x'] = null
+    attrs['data-y'] = null
+  }
+
+  // 直接通过 view.dispatch 更新节点
+  const { view } = editor.value
+  const tr = view.state.tr.setNodeMarkup(pos, undefined, attrs)
+  view.dispatch(tr)
+
+  // 重新获取节点引用
+  const newNode = view.state.doc.nodeAt(pos)
+  if (newNode) {
+    selectedImage.value = { ...selectedImage.value, node: newNode }
+  }
+
+  currentLayout.value = layout
+
+  // 更新选中框位置
+  setTimeout(() => {
+    updateOverlay()
+  }, 50)
+}
+
+// 获取当前图片布局
+// 更新选中框位置
+function updateOverlay() {
+  if (!selectedImage.value) return
+  const { el } = selectedImage.value
+  const editorEl = el.closest('.tiptap')?.parentElement
+  if (!editorEl) return
+  const editorRect = editorEl.getBoundingClientRect()
+  const imgRect = el.getBoundingClientRect()
+  imageOverlay.value = {
+    top: imgRect.top - editorRect.top - 2,
+    left: imgRect.left - editorRect.left - 2,
+    width: imgRect.width + 4,
+    height: imgRect.height + 4,
+  }
+  imageMenuPos.value = {
+    top: imgRect.top - editorRect.top - 44,
+    left: imgRect.left - editorRect.left + imgRect.width / 2 - 120,
+  }
+}
+
+// 拖拽移动图片
+function startMove(event: MouseEvent) {
+  if (!selectedImage.value) return
+  // 忽略拖拽手柄的点击
+  if ((event.target as HTMLElement).closest('.resize-handle')) return
+  event.preventDefault()
+  event.stopPropagation()
+  isMoving.value = true
+
+  const { node, el } = selectedImage.value
+  const imgEl = el.tagName === 'IMG' ? el : el.querySelector('img') || el
+  const parentEl = el.closest('.tiptap') || el.parentElement
+  if (!parentEl) return
+
+  const parentRect = parentEl.getBoundingClientRect()
+  const imgRect = imgEl.getBoundingClientRect()
+
+  // 从 attrs 获取当前位置，或使用 DOM 位置
+  const currentX = node.attrs['data-x'] !== null ? node.attrs['data-x'] : imgRect.left - parentRect.left
+  const currentY = node.attrs['data-y'] !== null ? node.attrs['data-y'] : imgRect.top - parentRect.top
+
+  moveStart.value = {
+    x: event.clientX,
+    y: event.clientY,
+    left: currentX,
+    top: currentY,
+  }
+
+  document.addEventListener('mousemove', onMove, { passive: false })
+  document.addEventListener('mouseup', stopMove)
+}
+
+function onMove(event: MouseEvent) {
+  if (!isMoving.value || !selectedImage.value || !editor.value) return
+  event.preventDefault()
+
+  const dx = event.clientX - moveStart.value.x
+  const dy = event.clientY - moveStart.value.y
+  const newX = moveStart.value.left + dx
+  const newY = moveStart.value.top + dy
+
+  // 直接更新节点属性（ProseMirror 方式）
+  const { pos, node } = selectedImage.value
+  const { view } = editor.value
+
+  const attrs = {
+    ...node.attrs,
+    'data-x': newX,
+    'data-y': newY,
+    'data-layout': 'absolute',
+  }
+  const tr = view.state.tr.setNodeMarkup(pos, undefined, attrs)
+  view.dispatch(tr)
+
+  // 重新获取节点引用（因为 dispatch 后节点已更新）
+  const newNode = view.state.doc.nodeAt(pos)
+  if (newNode) {
+    selectedImage.value = { ...selectedImage.value, node: newNode }
+  }
+
+  updateOverlay()
+}
+
+function stopMove() {
+  if (!isMoving.value || !editor.value) return
+  isMoving.value = false
+  document.removeEventListener('mousemove', onMove)
+  document.removeEventListener('mouseup', stopMove)
+
+  // 最终位置已经在 onMove 中通过 transaction 保存
+  updateOverlay()
+}
+
+// 拖拽调整大小
+function startResize(handle: string, event: MouseEvent) {
+  if (!selectedImage.value) return
+  event.preventDefault()
+  isDragging.value = true
+  dragHandle.value = handle
+  dragStart.value = {
+    x: event.clientX,
+    y: event.clientY,
+    width: selectedImage.value.el.offsetWidth,
+    height: selectedImage.value.el.offsetHeight,
+  }
+  document.addEventListener('mousemove', onResize)
+  document.addEventListener('mouseup', stopResize)
+}
+
+function onResize(event: MouseEvent) {
+  if (!isDragging.value || !selectedImage.value || !imageOverlay.value) return
+  const dx = event.clientX - dragStart.value.x
+  const dy = event.clientY - dragStart.value.y
+  let newWidth = dragStart.value.width
+  let newHeight = dragStart.value.height
+
+  const aspectRatio = dragStart.value.width / dragStart.value.height
+
+  switch (dragHandle.value) {
+    case 'se':
+      newWidth = Math.max(80, dragStart.value.width + dx)
+      newHeight = newWidth / aspectRatio
+      break
+    case 'sw':
+      newWidth = Math.max(80, dragStart.value.width - dx)
+      newHeight = newWidth / aspectRatio
+      break
+    case 'ne':
+      newWidth = Math.max(80, dragStart.value.width + dx)
+      newHeight = newWidth / aspectRatio
+      break
+    case 'nw':
+      newWidth = Math.max(80, dragStart.value.width - dx)
+      newHeight = newWidth / aspectRatio
+      break
+    case 'n':
+      newHeight = Math.max(60, dragStart.value.height - dy)
+      newWidth = newHeight * aspectRatio
+      break
+    case 's':
+      newHeight = Math.max(60, dragStart.value.height + dy)
+      newWidth = newHeight * aspectRatio
+      break
+    case 'e':
+      newWidth = Math.max(80, dragStart.value.width + dx)
+      newHeight = newWidth / aspectRatio
+      break
+    case 'w':
+      newWidth = Math.max(80, dragStart.value.width - dx)
+      newHeight = newWidth / aspectRatio
+      break
+  }
+
+  // 直接设置图片尺寸
+  selectedImage.value.el.style.width = `${newWidth}px`
+  selectedImage.value.el.style.height = `${newHeight}px`
+
+  // 更新选中框
+  updateOverlay()
+}
+
+function stopResize() {
+  if (!isDragging.value || !selectedImage.value || !editor.value) return
+  isDragging.value = false
+  document.removeEventListener('mousemove', onResize)
+  document.removeEventListener('mouseup', stopResize)
+
+  // 更新节点属性
+  const { pos, node, el } = selectedImage.value
+  const width = `${el.offsetWidth}px`
+  const height = `${el.offsetHeight}px`
+
+  const { view } = editor.value
+  const attrs = { ...node.attrs, width, height }
+  const tr = view.state.tr.setNodeMarkup(pos, undefined, attrs)
+  view.dispatch(tr)
+
+  // 更新选中框
+  updateOverlay()
+  dragHandle.value = null
+}
+
 function isAlignActive(align: string) {
   return editor.value?.isActive({ textAlign: align }) ?? false
 }
@@ -168,7 +471,7 @@ if (typeof window !== 'undefined') {
 </script>
 
 <template>
-  <div class="rich-editor rounded-xl overflow-hidden" style="background: var(--neu-bg); box-shadow: inset 3px 3px 6px 0 var(--neu-shadow-dark), inset -3px -3px 6px 0 var(--neu-shadow-light);">
+  <div class="rich-editor rounded-xl" style="background: var(--neu-bg); box-shadow: inset 3px 3px 6px 0 var(--neu-shadow-dark), inset -3px -3px 6px 0 var(--neu-shadow-light); overflow: visible;">
     <!-- 工具栏 -->
     <div
       v-if="editor"
@@ -304,7 +607,134 @@ if (typeof window !== 'undefined') {
     </div>
 
     <!-- 编辑区域 -->
-    <EditorContent :editor="editor" />
+    <div class="relative min-h-[300px]" @click="handleEditorClick" style="overflow: visible;">
+      <EditorContent :editor="editor" />
+
+      <!-- 图片选中框和拖拽手柄 -->
+      <div
+        v-if="imageOverlay"
+        class="image-resize-overlay absolute pointer-events-none"
+        :style="{
+          top: imageOverlay.top + 'px',
+          left: imageOverlay.left + 'px',
+          width: imageOverlay.width + 'px',
+          height: imageOverlay.height + 'px',
+          border: '2px solid #E07A5F',
+          borderRadius: '10px',
+          zIndex: 25,
+        }"
+        @mousedown.stop="startMove"
+      >
+        <!-- 四角拖拽手柄 -->
+        <div
+          class="resize-handle absolute w-3 h-3 bg-white border-2 border-[#E07A5F] rounded-full pointer-events-auto cursor-nw-resize"
+          style="top: -6px; left: -6px;"
+          @mousedown.stop="startResize('nw', $event)"
+        />
+        <div
+          class="resize-handle absolute w-3 h-3 bg-white border-2 border-[#E07A5F] rounded-full pointer-events-auto cursor-ne-resize"
+          style="top: -6px; right: -6px;"
+          @mousedown.stop="startResize('ne', $event)"
+        />
+        <div
+          class="resize-handle absolute w-3 h-3 bg-white border-2 border-[#E07A5F] rounded-full pointer-events-auto cursor-sw-resize"
+          style="bottom: -6px; left: -6px;"
+          @mousedown.stop="startResize('sw', $event)"
+        />
+        <div
+          class="resize-handle absolute w-3 h-3 bg-white border-2 border-[#E07A5F] rounded-full pointer-events-auto cursor-se-resize"
+          style="bottom: -6px; right: -6px;"
+          @mousedown.stop="startResize('se', $event)"
+        />
+
+        <!-- 四边拖拽手柄 -->
+        <div
+          class="resize-handle absolute w-3 h-2 bg-white border-2 border-[#E07A5F] rounded-full pointer-events-auto cursor-n-resize"
+          style="top: -5px; left: 50%; transform: translateX(-50%);"
+          @mousedown.stop="startResize('n', $event)"
+        />
+        <div
+          class="resize-handle absolute w-3 h-2 bg-white border-2 border-[#E07A5F] rounded-full pointer-events-auto cursor-s-resize"
+          style="bottom: -5px; left: 50%; transform: translateX(-50%);"
+          @mousedown.stop="startResize('s', $event)"
+        />
+        <div
+          class="resize-handle absolute w-2 h-3 bg-white border-2 border-[#E07A5F] rounded-full pointer-events-auto cursor-e-resize"
+          style="top: 50%; right: -5px; transform: translateY(-50%);"
+          @mousedown.stop="startResize('e', $event)"
+        />
+        <div
+          class="resize-handle absolute w-2 h-3 bg-white border-2 border-[#E07A5F] rounded-full pointer-events-auto cursor-w-resize"
+          style="top: 50%; left: -5px; transform: translateY(-50%);"
+          @mousedown.stop="startResize('w', $event)"
+        />
+      </div>
+
+      <!-- 图片操作浮动菜单 -->
+      <Transition name="menu">
+        <div
+          v-if="showImageMenu"
+          class="image-menu absolute z-30 flex flex-col gap-1.5 px-3 py-2 rounded-lg shadow-lg"
+          :style="{ top: imageMenuPos.top + 'px', left: imageMenuPos.left + 'px', background: 'var(--card)', border: '1px solid var(--border)', minWidth: '240px' }"
+          @click.stop
+        >
+          <!-- 布局选项 -->
+          <div class="flex items-center gap-1">
+            <span class="text-xs mr-1" style="color: var(--muted-foreground);">布局:</span>
+            <button
+              :class="['toolbar-btn text-xs px-1.5 h-7', currentLayout === 'inline' && 'toolbar-btn-active']"
+              @click="setImageLayout('inline')"
+              title="嵌入型"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+            </button>
+            <button
+              :class="['toolbar-btn text-xs px-1.5 h-7', currentLayout === 'square' && 'toolbar-btn-active']"
+              @click="setImageLayout('square')"
+              title="四周型环绕"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="10" height="10" rx="1"/><line x1="16" y1="5" x2="21" y2="5"/><line x1="16" y1="9" x2="21" y2="9"/><line x1="5" y1="16" x2="19" y2="16"/><line x1="5" y1="20" x2="19" y2="20"/></svg>
+            </button>
+            <button
+              :class="['toolbar-btn text-xs px-1.5 h-7', currentLayout === 'top-bottom' && 'toolbar-btn-active']"
+              @click="setImageLayout('top-bottom')"
+              title="上下型环绕"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="3" x2="19" y2="3"/><line x1="5" y1="7" x2="19" y2="7"/><rect x="7" y="10" width="10" height="6" rx="1"/><line x1="5" y1="20" x2="19" y2="20"/></svg>
+            </button>
+            <button
+              :class="['toolbar-btn text-xs px-1.5 h-7', currentLayout === 'through' && 'toolbar-btn-active']"
+              @click="setImageLayout('through')"
+              title="穿越型环绕"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h4l2 4H3"/><path d="M3 13h4l2 4H3"/><rect x="11" y="3" width="10" height="8" rx="1"/><path d="M3 5h4l2 4H3"/><path d="M3 13h8l2 4H3"/><line x1="14" y1="15" x2="21" y2="15"/><line x1="14" y1="19" x2="21" y2="19"/></svg>
+            </button>
+          </div>
+
+          <div class="h-px" style="background: var(--border);" />
+
+          <!-- 对齐和删除 -->
+          <div class="flex items-center gap-1">
+            <span class="text-xs mr-1" style="color: var(--muted-foreground);">操作:</span>
+            <button class="toolbar-btn" @click="setImageAlign('left')" title="左对齐">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+            </button>
+            <button class="toolbar-btn" @click="setImageAlign('center')" title="居中">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+            </button>
+            <button class="toolbar-btn" @click="setImageAlign('right')" title="右对齐">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
+            </button>
+
+            <div class="w-px h-5 mx-0.5" style="background: var(--border);" />
+
+            <button class="toolbar-btn hover:text-red-500" @click="deleteImage" title="删除图片">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </div>
   </div>
 
   <!-- 图片 URL 对话框 -->
@@ -394,6 +824,7 @@ if (typeof window !== 'undefined') {
   font-size: 0.9375rem;
   line-height: 1.8;
   color: var(--foreground);
+  position: relative;
 }
 
 :deep(.tiptap p) {
@@ -456,6 +887,47 @@ if (typeof window !== 'undefined') {
   height: auto;
   border-radius: 8px;
   margin: 1em 0;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+
+:deep(.tiptap img:hover) {
+  box-shadow: 0 0 0 2px rgba(224, 122, 95, 0.3);
+}
+
+/* 四周型环绕 */
+:deep(.tiptap img[data-layout="square"]) {
+  float: left;
+  margin: 0 1em 1em 0;
+  shape-outside: margin-box;
+}
+
+/* 上下型环绕 */
+:deep(.tiptap img[data-layout="top-bottom"]) {
+  display: block;
+  margin: 1em auto;
+  float: none;
+  clear: both;
+}
+
+/* 穿越型环绕 */
+:deep(.tiptap img[data-layout="through"]) {
+  float: left;
+  margin: 0 1em 1em 0;
+  shape-outside: margin-box;
+}
+
+/* 绝对定位（自由拖拽后） */
+:deep(.tiptap div[data-layout="absolute"]) {
+  position: absolute;
+  z-index: 10;
+}
+
+/* 清除浮动 */
+:deep(.tiptap::after) {
+  content: '';
+  display: table;
+  clear: both;
 }
 
 :deep(.tiptap mark) {

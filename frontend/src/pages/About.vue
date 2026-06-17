@@ -75,12 +75,6 @@ const summaryItems = [
     <section class="px-6 pb-8">
       <div class="max-w-[53rem] mx-auto">
         <div class="glass-strong rounded-2xl p-8 md:p-10">
-          <h2
-            class="text-lg font-semibold text-foreground mb-5"
-            style="font-family: var(--font-serif);"
-          >
-            访问热力图
-          </h2>
           <ContributionGrid
             v-if="stats"
             :data="stats.daily_visits"

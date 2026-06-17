@@ -4,7 +4,7 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # 数据库配置
-    database_url: str = "mysql+pymysql://root:123456@localhost:3306/memory_thread"
+    database_url: str = "mysql+pymysql://root:password@localhost:3306/memory_thread"
 
     # JWT 配置
     secret_key: str = "your-secret-key-change-in-production"
