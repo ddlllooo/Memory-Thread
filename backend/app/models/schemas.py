@@ -43,6 +43,9 @@ class PostCreate(BaseModel):
     tags: Optional[list[str]] = None
     published: bool = False
 
+    class Config:
+        from_attributes = True
+
 
 class PostUpdate(BaseModel):
     title: Optional[str] = None
@@ -52,11 +55,14 @@ class PostUpdate(BaseModel):
     tags: Optional[list[str]] = None
     published: Optional[bool] = None
 
+    class Config:
+        from_attributes = True
 
-class PostResponse(BaseModel):
+
+class PostSummary(BaseModel):
+    """文章列表摘要（不含 content）"""
     id: str
     title: str
-    content: str
     summary: Optional[str] = None
     cover_image: Optional[str] = None
     tags: list[str] = []
@@ -66,6 +72,11 @@ class PostResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PostResponse(PostSummary):
+    """文章详情（含 content）"""
+    content: str
 
 
 # 图片相关

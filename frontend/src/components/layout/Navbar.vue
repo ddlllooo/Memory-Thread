@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -20,6 +20,11 @@ const navItems = [
 
 onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }))
 onUnmounted(() => window.removeEventListener('scroll', onScroll))
+
+// 路由切换时自动关闭移动端菜单
+watch(() => route.path, () => {
+  mobileOpen.value = false
+})
 
 function onScroll() {
   const y = window.scrollY
@@ -91,6 +96,8 @@ function active(path: string) {
         <!-- 移动端按钮 -->
         <button
           class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg hover:bg-foreground/5 transition-colors"
+          :aria-expanded="mobileOpen"
+          aria-label="切换导航菜单"
           @click="mobileOpen = !mobileOpen"
         >
           <div class="relative w-5 h-4">

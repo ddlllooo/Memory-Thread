@@ -1,24 +1,32 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { statsApi, type VisitorStats } from '@/api/stats'
 import { useCountUp } from '@/composables/useCountUp'
+import { useScroll } from '@/composables/useScroll'
 import ContributionGrid from '@/components/ui/ContributionGrid.vue'
 
-const scrollY = ref(0)
+const { scrollY } = useScroll()
 const stats = ref<VisitorStats | null>(null)
+const loading = ref(true)
+const loadError = ref(false)
 const selectedYear = ref(new Date().getFullYear())
 
 onMounted(() => {
-  window.addEventListener('scroll', onScroll, { passive: true })
   fetchStats()
 })
 
-onUnmounted(() => window.removeEventListener('scroll', onScroll))
-function onScroll() { scrollY.value = window.scrollY }
-
 async function fetchStats(year?: number) {
-  const data = await statsApi.getStats(year)
-  stats.value = data
+  loading.value = true
+  loadError.value = false
+  try {
+    const data = await statsApi.getStats(year)
+    stats.value = data
+  } catch (error) {
+    console.error('加载统计数据失败:', error)
+    loadError.value = true
+  } finally {
+    loading.value = false
+  }
 }
 
 function onYearChange(year: number) {
@@ -82,8 +90,12 @@ const summaryItems = [
             :current-year="selectedYear"
             @update:year="onYearChange"
           />
-          <div v-else class="h-24 flex items-center justify-center" style="color: #8C7E74;">
+          <div v-else-if="loading" class="h-24 flex items-center justify-center text-muted-foreground">
             加载中...
+          </div>
+          <div v-else-if="loadError" class="h-24 flex flex-col items-center justify-center gap-2">
+            <p class="text-sm text-muted-foreground">加载统计数据失败</p>
+            <button class="btn-ghost text-xs" @click="fetchStats()">重试</button>
           </div>
         </div>
       </div>

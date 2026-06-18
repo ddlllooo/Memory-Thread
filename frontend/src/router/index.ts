@@ -1,10 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Home from '@/pages/Home.vue'
-import Blog from '@/pages/Blog.vue'
-import Post from '@/pages/Post.vue'
-import About from '@/pages/About.vue'
-import Login from '@/pages/Login.vue'
-import Admin from '@/pages/Admin.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -15,33 +9,38 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: Home,
+      component: () => import('@/pages/Home.vue'),
     },
     {
       path: '/blog',
       name: 'blog',
-      component: Blog,
+      component: () => import('@/pages/Blog.vue'),
     },
     {
       path: '/post/:id',
       name: 'post',
-      component: Post,
+      component: () => import('@/pages/Post.vue'),
     },
     {
       path: '/about',
       name: 'about',
-      component: About,
+      component: () => import('@/pages/About.vue'),
     },
     {
       path: '/login',
       name: 'login',
-      component: Login,
+      component: () => import('@/pages/Login.vue'),
     },
     {
       path: '/admin',
       name: 'admin',
-      component: Admin,
+      component: () => import('@/pages/Admin.vue'),
       meta: { requiresAuth: true },
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      redirect: '/',
     },
   ],
 })

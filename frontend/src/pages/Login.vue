@@ -97,9 +97,6 @@ async function handleLogin() {
           </button>
         </form>
 
-        <p class="text-xs text-center mt-6" style="color: #BFB3A3;">
-          账号: admin / admin123
-        </p>
       </div>
     </div>
   </div>

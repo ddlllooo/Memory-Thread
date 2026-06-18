@@ -8,7 +8,7 @@ from app.models.schemas import LoginRequest, Token, UserResponse
 from app.services.auth import (
     authenticate_user,
     create_access_token,
-    get_current_user,
+    get_current_user_required,
     get_password_hash,
 )
 
@@ -38,7 +38,7 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
+async def get_me(current_user: User = Depends(get_current_user_required)):
     """获取当前用户信息"""
     return current_user
 

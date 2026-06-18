@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { postsApi } from '@/api/posts'
 import { imagesApi } from '@/api/images'
-import CanvasEditor from '@/components/ui/CanvasEditor.vue'
+import { formatDate } from '@/utils/format'
+import RichEditor from '@/components/ui/RichEditor.vue'
 import {
   Dialog,
   DialogContent,
@@ -14,18 +15,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-
-interface Post {
-  id: string
-  title: string
-  content: string
-  summary: string
-  cover_image: string | null
-  tags: string[]
-  published: boolean
-  created_at: string
-  updated_at: string
-}
+import type { Post } from '@/types'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -43,6 +33,10 @@ const totalPages = ref(1)
 const showDeleteConfirm = ref(false)
 const deleteTargetId = ref<string | null>(null)
 const deleteTargetTitle = ref('')
+
+// 离开确认对话框
+const showLeaveConfirm = ref(false)
+const pendingRoute = ref<string | null>(null)
 
 // 提示消息
 const toastMessage = ref('')
@@ -65,6 +59,32 @@ onMounted(async () => {
   }
   await loadPosts()
 })
+
+// 编辑器有内容时离开页面提醒
+onBeforeRouteLeave((to, _from, next) => {
+  if (showEditor.value && editingPost.value.title && !showLeaveConfirm.value) {
+    pendingRoute.value = to.fullPath
+    showLeaveConfirm.value = true
+    next(false)
+  } else {
+    next()
+  }
+})
+
+function confirmLeave() {
+  showLeaveConfirm.value = false
+  if (pendingRoute.value) {
+    showEditor.value = false
+    editingPost.value.title = ''
+    router.push(pendingRoute.value)
+    pendingRoute.value = null
+  }
+}
+
+function cancelLeave() {
+  showLeaveConfirm.value = false
+  pendingRoute.value = null
+}
 
 function displayToast(message: string, type: 'success' | 'error' = 'success') {
   toastMessage.value = message
@@ -111,15 +131,23 @@ function removeCoverImage() {
   editingPost.value.cover_image = ''
 }
 
-function openEditor(post?: Post) {
+async function openEditor(post?: Post) {
   if (post) {
     editingPostId.value = post.id
-    editingPost.value = {
-      title: post.title,
-      content: post.content,
-      tags: post.tags.join(', '),
-      published: post.published,
-      cover_image: post.cover_image || '',
+    showEditor.value = true
+    // 列表接口不含 content，需单独获取完整文章
+    try {
+      const full = await postsApi.getPost(post.id)
+      editingPost.value = {
+        title: full.title,
+        content: full.content,
+        tags: full.tags.join(', '),
+        published: full.published,
+        cover_image: full.cover_image || '',
+      }
+    } catch {
+      displayToast('加载文章内容失败', 'error')
+      showEditor.value = false
     }
   } else {
     editingPostId.value = null
@@ -130,8 +158,8 @@ function openEditor(post?: Post) {
       published: false,
       cover_image: '',
     }
+    showEditor.value = true
   }
-  showEditor.value = true
 }
 
 function closeEditor() {
@@ -258,6 +286,22 @@ function logout() {
         </DialogContent>
       </Dialog>
 
+      <!-- 离开确认对话框 -->
+      <Dialog v-model:open="showLeaveConfirm">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>未保存的更改</DialogTitle>
+            <DialogDescription>
+              编辑中的内容尚未保存，确定要离开吗？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" @click="cancelLeave">取消</Button>
+            <Button variant="destructive" @click="confirmLeave">确定离开</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <!-- 头部 -->
       <div class="flex items-center justify-between mb-8">
         <div>
@@ -337,7 +381,7 @@ function logout() {
             <!-- 富文本编辑器 -->
             <div>
               <label class="text-xs font-medium mb-1.5 block" style="color: #8C7E74;">文章内容</label>
-              <CanvasEditor v-model="editingPost.content" />
+              <RichEditor v-model="editingPost.content" />
             </div>
 
             <!-- 操作栏 -->
@@ -373,7 +417,7 @@ function logout() {
               <div class="min-w-0">
                 <h3 class="font-medium text-foreground truncate" style="font-family: var(--font-serif);">{{ post.title }}</h3>
                 <p class="text-xs mt-1" style="color: #8C7E74;">
-                  {{ new Date(post.created_at).toLocaleDateString('zh-CN') }} ·
+                  {{ formatDate(post.created_at) }} ·
                   <span :style="{ color: post.published ? '#8A9A86' : '#E07A5F' }">
                     {{ post.published ? '已发布' : '草稿' }}
                   </span>

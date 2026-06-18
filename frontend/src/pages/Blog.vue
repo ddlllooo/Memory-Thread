@@ -1,27 +1,26 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { postsApi } from '@/api/posts'
+import { useScroll } from '@/composables/useScroll'
+import { formatDate, stripHtml } from '@/utils/format'
 import type { Post } from '@/types'
 
 const router = useRouter()
+const { scrollY } = useScroll()
 const posts = ref<Post[]>([])
 const selectedTag = ref<string | null>(null)
-const scrollY = ref(0)
 const loading = ref(true)
 
 onMounted(async () => {
-  window.addEventListener('scroll', onScroll, { passive: true })
   await loadPosts()
 })
-onUnmounted(() => window.removeEventListener('scroll', onScroll))
-function onScroll() { scrollY.value = window.scrollY }
 
 async function loadPosts() {
   loading.value = true
   try {
     const response = await postsApi.getPosts(1, 50)
-    posts.value = response.data.filter(p => p.published)
+    posts.value = response.data
   } catch (error) {
     console.error('加载文章失败:', error)
   } finally {
@@ -44,12 +43,8 @@ function goToPost(id: string) {
   router.push(`/post/${id}`)
 }
 
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('zh-CN')
-}
-
 function getExcerpt(post: Post) {
-  return post.summary || post.content.replace(/<[^>]+>/g, '').slice(0, 150)
+  return post.summary || stripHtml(post.content, 150)
 }
 </script>
 

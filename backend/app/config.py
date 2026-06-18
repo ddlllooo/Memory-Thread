@@ -1,5 +1,11 @@
+import logging
+import warnings
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_SECRET_KEY = "your-secret-key-change-in-production"
 
 
 class Settings(BaseSettings):
@@ -7,7 +13,7 @@ class Settings(BaseSettings):
     database_url: str = "mysql+pymysql://root:password@localhost:3306/memory_thread"
 
     # JWT 配置
-    secret_key: str = "your-secret-key-change-in-production"
+    secret_key: str = DEFAULT_SECRET_KEY
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
@@ -27,4 +33,11 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings():
-    return Settings()
+    settings = Settings()
+    if settings.secret_key == DEFAULT_SECRET_KEY:
+        warnings.warn(
+            "SECRET_KEY 使用了默认值，请在 .env 中设置一个安全的密钥！",
+            stacklevel=2,
+        )
+        logger.warning("SECRET_KEY 使用了默认值，这在生产环境中不安全！")
+    return settings

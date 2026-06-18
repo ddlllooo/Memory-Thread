@@ -1,18 +1,24 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { postsApi } from '@/api/posts'
+import { useScroll } from '@/composables/useScroll'
+import { sanitizeHtml } from '@/utils/sanitize'
+import { formatDate } from '@/utils/format'
 import type { Post } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
+const { scrollY } = useScroll()
 const loading = ref(true)
 const post = ref<Post | null>(null)
-const scrollY = ref(0)
 const readProgress = ref(0)
 
+const sanitizedContent = computed(() =>
+  post.value ? sanitizeHtml(post.value.content) : ''
+)
+
 onMounted(async () => {
-  window.addEventListener('scroll', onScroll, { passive: true })
   const id = route.params.id as string
   try {
     post.value = await postsApi.getPost(id)
@@ -25,21 +31,16 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('scroll', onScroll)
+  // useScroll handles cleanup
 })
 
 function onScroll() {
-  scrollY.value = window.scrollY
   const docHeight = document.documentElement.scrollHeight - window.innerHeight
   readProgress.value = docHeight > 0 ? Math.min(1, scrollY.value / docHeight) : 0
 }
 
 function goBack() {
   router.push('/blog')
-}
-
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('zh-CN')
 }
 </script>
 
@@ -125,7 +126,7 @@ function formatDate(date: string) {
             <div
               class="prose max-w-none text-foreground leading-relaxed"
               style="font-family: var(--font-sans);"
-              v-html="post.content"
+              v-html="sanitizedContent"
             />
           </div>
 

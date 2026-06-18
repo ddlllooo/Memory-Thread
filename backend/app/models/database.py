@@ -1,17 +1,25 @@
-from sqlalchemy import create_engine, Column, String, Integer, Text, Boolean, DateTime, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
+from sqlalchemy import create_engine, Column, String, Integer, Text, Boolean, DateTime, ForeignKey, LargeBinary
+from sqlalchemy.dialects.mysql import LONGTEXT
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from datetime import datetime, timezone
 import uuid
 
 from app.config import get_settings
 
 settings = get_settings()
 
-engine = create_engine(settings.database_url)
+engine = create_engine(
+    settings.database_url,
+    pool_size=5,
+    max_overflow=10,
+    pool_recycle=3600,
+    pool_pre_ping=True,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 def get_db():
@@ -26,6 +34,10 @@ def generate_uuid():
     return str(uuid.uuid4())
 
 
+def utcnow():
+    return datetime.now(timezone.utc)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -35,8 +47,8 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     avatar = Column(String(255), nullable=True)
     role = Column(String(20), default="user")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class Post(Base):
@@ -44,13 +56,13 @@ class Post(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     title = Column(String(200), nullable=False)
-    content = Column(Text, nullable=False)
+    content = Column(LONGTEXT, nullable=False)
     summary = Column(String(500), nullable=True)
     cover_image = Column(String(500), nullable=True)
     tags = Column(Text, nullable=True)  # JSON 字符串，如 '["技术","Vue"]'
-    published = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    published = Column(Boolean, default=False, index=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class Image(Base):
@@ -63,8 +75,8 @@ class Image(Base):
     description = Column(Text, nullable=True)
     width = Column(Integer, nullable=True)
     height = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow, index=True)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class Visit(Base):
@@ -74,4 +86,4 @@ class Visit(Base):
     path = Column(String(500), nullable=True)
     ip_hash = Column(String(64), nullable=True)
     user_agent = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow, index=True)

@@ -172,17 +172,14 @@
 /* ===== 基础 ===== */
 @layer base {
   * {
-    @apply border-border;
     @apply border-border outline-ring/50;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground font-sans antialiased;
     font-family: var(--font-sans);
     font-feature-settings: "rlig" 1, "calt" 1;
     overflow-x: hidden;
-    @apply bg-background text-foreground;
-    @apply font-sans;
   }
 
   ::selection {
@@ -198,11 +195,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #D5CBBD;
+  background: var(--border);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #BFB3A3;
+  background: var(--muted-foreground);
 }
 
 /* ===== 玻璃拟态 ===== */
@@ -218,6 +215,11 @@
   backdrop-filter: blur(24px) saturate(1.6);
   -webkit-backdrop-filter: blur(24px) saturate(1.6);
   border: 1px solid rgba(255, 255, 255, 0.85);
+}
+
+.dark .glass-strong {
+  background: rgba(26, 22, 18, 0.78);
+  border: 1px solid rgba(58, 50, 40, 0.5);
 }
 
 /* ===== 微拟态 ===== */
@@ -242,6 +244,10 @@
     -5px -5px 12px 0 var(--neu-shadow-light);
 }
 
+.dark .neu-convex {
+  background: linear-gradient(145deg, #252018, #1A1610);
+}
+
 /* ===== 按钮 ===== */
 .btn-primary {
   background: #E07A5F;
@@ -255,6 +261,11 @@
   overflow: hidden;
   transition: all 0.3s ease;
   cursor: pointer;
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .btn-primary::before {
@@ -286,8 +297,8 @@
 
 .btn-ghost {
   background: transparent;
-  color: #2B221E;
-  border: 1px solid #E8E0D6;
+  color: var(--foreground);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.625rem 1.5rem;
   font-size: 0.875rem;
@@ -297,9 +308,14 @@
 }
 
 .btn-ghost:hover {
-  background: #F2EDE6;
-  border-color: #D5CBBD;
+  background: var(--muted);
+  border-color: var(--border);
   transform: translateY(-1px);
+}
+
+.btn-ghost:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 /* ===== 卡片 ===== */
@@ -353,20 +369,20 @@
 }
 
 .input-neu::placeholder {
-  color: #BFB3A3;
+  color: var(--muted-foreground);
 }
 
 .input-neu:focus {
   box-shadow:
     inset 3px 3px 6px 0 var(--neu-shadow-dark),
     inset -3px -3px 6px 0 var(--neu-shadow-light),
-    0 0 0 2px rgba(224, 122, 95, 0.2);
+    0 0 0 2px rgba(224, 122, 95, 0.3);
 }
 
 /* ===== 分隔线 ===== */
 .divider-fade {
   height: 1px;
-  background: linear-gradient(90deg, transparent, #E8E0D6, transparent);
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
 }
 
 /* ===== 文字渐变 ===== */
@@ -429,4 +445,16 @@
 
 .animate-float {
   animation: float 6s ease-in-out infinite;
+}
+
+/* ===== 减少动画 ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

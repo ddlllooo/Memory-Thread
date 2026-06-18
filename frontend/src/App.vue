@@ -8,35 +8,42 @@ import { statsApi } from '@/api/stats'
 
 const route = useRoute()
 let lenis: Lenis | undefined
+let rafId: number
+let visitRecorded = false
 
 onMounted(() => {
-  // 记录首次访问
-  statsApi.recordVisit().catch(() => {})
+  // 仅首次加载记录一次访问（session 级去重）
+  if (!visitRecorded) {
+    visitRecorded = true
+    statsApi.recordVisit().catch(() => {})
+  }
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   lenis = new Lenis({
-    duration: 1.2,
+    duration: prefersReducedMotion ? 0 : 1.2,
     easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-    smoothWheel: true,
+    smoothWheel: !prefersReducedMotion,
     wheelMultiplier: 1,
     touchMultiplier: 2,
   })
 
   function raf(time: number) {
     lenis?.raf(time)
-    requestAnimationFrame(raf)
+    rafId = requestAnimationFrame(raf)
   }
 
-  requestAnimationFrame(raf)
+  rafId = requestAnimationFrame(raf)
 })
 
 onUnmounted(() => {
+  cancelAnimationFrame(rafId)
   lenis?.destroy()
 })
 
-// 路由切换时回到顶部并记录访问
+// 路由切换时回到顶部
 watch(() => route.path, () => {
   lenis?.scrollTo(0, { immediate: true })
-  statsApi.recordVisit().catch(() => {})
 })
 </script>
 

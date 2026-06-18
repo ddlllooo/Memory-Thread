@@ -1,33 +1,31 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { postsApi } from '@/api/posts'
+import { useScroll } from '@/composables/useScroll'
+import { formatDate, stripHtml } from '@/utils/format'
 import type { Post } from '@/types'
 
 const router = useRouter()
+const { scrollY } = useScroll()
 const recentPosts = ref<Post[]>([])
 const heroVisible = ref(false)
-const scrollY = ref(0)
+const loading = ref(true)
+const loadError = ref(false)
 
 onMounted(async () => {
-  window.addEventListener('scroll', onScroll, { passive: true })
   requestAnimationFrame(() => { heroVisible.value = true })
 
   try {
     const response = await postsApi.getPosts(1, 3)
-    recentPosts.value = response.data.filter(p => p.published)
+    recentPosts.value = response.data
   } catch (error) {
     console.error('加载文章失败:', error)
+    loadError.value = true
+  } finally {
+    loading.value = false
   }
 })
-
-onUnmounted(() => {
-  window.removeEventListener('scroll', onScroll)
-})
-
-function onScroll() {
-  scrollY.value = window.scrollY
-}
 
 function goToPost(id: string) {
   router.push(`/post/${id}`)
@@ -124,8 +122,23 @@ function goToBlog() {
           <div class="divider-fade max-w-xs mx-auto mt-6" />
         </div>
 
+        <!-- 加载状态 -->
+        <div v-if="loading" class="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div class="md:col-span-7 h-80 bg-muted rounded-2xl animate-pulse" />
+          <div class="md:col-span-5 flex flex-col gap-6">
+            <div class="h-28 bg-muted rounded-xl animate-pulse" />
+            <div class="h-28 bg-muted rounded-xl animate-pulse" />
+          </div>
+        </div>
+
+        <!-- 错误状态 -->
+        <div v-else-if="loadError" class="text-center py-12">
+          <p class="text-sm mb-4" style="color: #8C7E74;">加载文章失败，请稍后重试</p>
+          <button class="btn-ghost text-sm" @click="location.reload()">重新加载</button>
+        </div>
+
         <!-- 非对称网格 -->
-        <div v-if="recentPosts.length" class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div v-else-if="recentPosts.length" class="grid grid-cols-1 md:grid-cols-12 gap-6">
           <!-- 大卡 -->
           <div
             class="md:col-span-7 card-glass p-1 cursor-pointer group"
@@ -140,8 +153,8 @@ function goToBlog() {
               />
             </div>
             <div class="p-5">
-              <div class="flex items-center gap-2 text-xs mb-2" style="color: #8C7E74;">
-                <time>{{ new Date(recentPosts[0].created_at).toLocaleDateString('zh-CN') }}</time>
+              <div class="flex items-center gap-2 text-xs mb-2 text-muted-foreground">
+                <time>{{ formatDate(recentPosts[0].created_at) }}</time>
                 <span v-for="tag in recentPosts[0].tags.slice(0, 2)" :key="tag" class="tag-pill">{{ tag }}</span>
               </div>
               <h3
@@ -150,7 +163,7 @@ function goToBlog() {
               >
                 {{ recentPosts[0].title }}
               </h3>
-              <p class="text-sm line-clamp-2" style="color: #8C7E74;">{{ recentPosts[0].summary || recentPosts[0].content.replace(/<[^>]+>/g, '').slice(0, 120) }}</p>
+              <p class="text-sm line-clamp-2 text-muted-foreground">{{ recentPosts[0].summary || stripHtml(recentPosts[0].content, 120) }}</p>
             </div>
           </div>
 
@@ -174,8 +187,8 @@ function goToBlog() {
                 />
               </div>
               <div class="flex-1 min-w-0 flex flex-col justify-center">
-                <div class="text-xs mb-1" style="color: #8C7E74;">
-                  <time>{{ new Date(post.created_at).toLocaleDateString('zh-CN') }}</time>
+                <div class="text-xs mb-1 text-muted-foreground">
+                  <time>{{ formatDate(post.created_at) }}</time>
                 </div>
                 <h3
                   class="font-semibold text-foreground group-hover:text-primary transition-colors duration-300 line-clamp-2 text-sm"
@@ -183,7 +196,7 @@ function goToBlog() {
                 >
                   {{ post.title }}
                 </h3>
-                <p class="text-xs line-clamp-1 mt-1" style="color: #BFB3A3;">{{ post.summary || post.content.replace(/<[^>]+>/g, '').slice(0, 80) }}</p>
+                <p class="text-xs line-clamp-1 mt-1 text-muted-foreground">{{ post.summary || stripHtml(post.content, 80) }}</p>
               </div>
             </div>
           </div>

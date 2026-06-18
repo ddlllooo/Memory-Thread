@@ -8,6 +8,8 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(sessionStorage.getItem('token'))
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const initializing = ref(false)
+  const initDone = ref(false)
 
   const isAuthenticated = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
@@ -53,9 +55,29 @@ export const useAuthStore = defineStore('auth', () => {
     sessionStorage.removeItem('token')
   }
 
+  /**
+   * 初始化认证状态（等待用户信息加载完成）
+   * 在路由守卫中使用，避免竞态条件
+   */
+  async function initAuth() {
+    if (initDone.value) return
+    if (!token.value) {
+      initDone.value = true
+      return
+    }
+    initializing.value = true
+    await fetchCurrentUser()
+    initializing.value = false
+    initDone.value = true
+  }
+
   // 初始化时获取用户信息
   if (token.value) {
-    fetchCurrentUser()
+    fetchCurrentUser().then(() => {
+      initDone.value = true
+    })
+  } else {
+    initDone.value = true
   }
 
   return {
@@ -63,10 +85,13 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     loading,
     error,
+    initializing,
+    initDone,
     isAuthenticated,
     isAdmin,
     login,
     logout,
     fetchCurrentUser,
+    initAuth,
   }
 })
