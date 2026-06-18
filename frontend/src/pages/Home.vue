@@ -17,7 +17,7 @@ onMounted(async () => {
   requestAnimationFrame(() => { heroVisible.value = true })
 
   try {
-    const response = await postsApi.getPosts(1, 3)
+    const response = await postsApi.getPosts(1, 3, true)
     recentPosts.value = response.data
   } catch (error) {
     console.error('加载文章失败:', error)

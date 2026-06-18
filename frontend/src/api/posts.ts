@@ -2,8 +2,10 @@ import client from './client'
 import type { Post, PaginatedResponse } from '@/types'
 
 export const postsApi = {
-  getPosts(page = 1, limit = 10): Promise<PaginatedResponse<Post>> {
-    return client.get('/posts', { params: { page, limit } }).then(res => res.data)
+  getPosts(page = 1, limit = 10, published?: boolean): Promise<PaginatedResponse<Post>> {
+    const params: Record<string, any> = { page, limit }
+    if (published !== undefined) params.published = published
+    return client.get('/posts', { params }).then(res => res.data)
   },
 
   getPost(id: string): Promise<Post> {

@@ -19,7 +19,7 @@ onMounted(async () => {
 async function loadPosts() {
   loading.value = true
   try {
-    const response = await postsApi.getPosts(1, 50)
+    const response = await postsApi.getPosts(1, 50, true)
     posts.value = response.data
   } catch (error) {
     console.error('加载文章失败:', error)

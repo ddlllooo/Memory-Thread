@@ -68,9 +68,16 @@ async def list_posts(
 
 
 @router.get("/{post_id}", response_model=PostResponse)
-async def get_post(post_id: str, db: Session = Depends(get_db)):
-    """获取单篇文章（只返回已发布的）"""
-    post = db.query(Post).filter(Post.id == post_id, Post.published == True).first()
+async def get_post(
+    post_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+):
+    """获取单篇文章（管理员可查看未发布文章）"""
+    query = db.query(Post).filter(Post.id == post_id)
+    if not (current_user and current_user.role == "admin"):
+        query = query.filter(Post.published == True)
+    post = query.first()
     if not post:
         raise HTTPException(status_code=404, detail="文章不存在")
     return serialize_post(post)
