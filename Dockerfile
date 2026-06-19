@@ -1,6 +1,10 @@
 # 阶段 1：构建前端
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
+
+# 使用国内 npm 镜像
+RUN npm config set registry https://registry.npmmirror.com
+
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
@@ -9,6 +13,10 @@ RUN npm run build
 # 阶段 2：运行后端
 FROM python:3.11-slim
 WORKDIR /app
+
+# 使用国内 PyPI 镜像
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    pip config set install.trusted-host mirrors.aliyun.com
 
 # 安装依赖
 COPY backend/requirements.txt .
