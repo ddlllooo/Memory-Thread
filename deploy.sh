@@ -29,6 +29,10 @@ if [ ! -f .env.production ]; then
     fi
 fi
 
+# 2. 生成 .env 文件供 docker-compose 使用
+echo -e "${GREEN}生成 Docker Compose 配置...${NC}"
+grep -E "^(DB_ROOT_PASSWORD|ENVIRONMENT)=" .env.production > .env
+
 # 2. 检查 SSL 证书
 if [ ! -f nginx/ssl/fullchain.pem ] || [ ! -f nginx/ssl/privkey.pem ]; then
     echo -e "${YELLOW}警告：SSL 证书文件不存在${NC}"
