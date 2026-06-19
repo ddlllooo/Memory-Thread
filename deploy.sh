@@ -17,11 +17,16 @@ echo ""
 
 # 1. 检查 .env.production
 if [ ! -f .env.production ]; then
-    echo -e "${RED}错误：.env.production 文件不存在${NC}"
-    echo "请先复制 .env.production 并修改配置："
-    echo "  cp .env.production .env.production.local"
-    echo "  vim .env.production"
-    exit 1
+    if [ -f .env.production.example ]; then
+        echo -e "${YELLOW}.env.production 不存在，从模板创建...${NC}"
+        cp .env.production.example .env.production
+        echo -e "${RED}请先编辑 .env.production 修改所有 CHANGE_ME 配置：${NC}"
+        echo "  vim .env.production"
+        exit 1
+    else
+        echo -e "${RED}错误：.env.production 和 .env.production.example 都不存在${NC}"
+        exit 1
+    fi
 fi
 
 # 2. 检查 SSL 证书

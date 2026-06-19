@@ -10,6 +10,7 @@ env/
 .env
 .env.production
 .env.local
+!.env.production.example
 
 # Build outputs
 dist/

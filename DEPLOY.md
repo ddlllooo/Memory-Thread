@@ -13,15 +13,15 @@
 ### 1. 克隆代码
 
 ```bash
-git clone <your-repo-url> memory-thread
+git clone https://github.com/ddlllooo/Memory-Thread.git memory-thread
 cd memory-thread
 ```
 
 ### 2. 配置环境变量
 
 ```bash
-# 复制配置模板
-cp .env.production .env.production.bak
+# 从模板创建配置文件
+cp .env.production.example .env.production
 
 # 编辑配置（必须修改所有 CHANGE_ME）
 vim .env.production
