@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
+    # 管理员账号配置
+    admin_username: str = "admin"
+    admin_password: str = "admin123"
+    admin_email: str = "admin@example.com"
+
     # 文件上传配置
     upload_dir: str = "uploads"
     max_file_size: int = 10 * 1024 * 1024  # 10MB
@@ -40,4 +45,10 @@ def get_settings():
             stacklevel=2,
         )
         logger.warning("SECRET_KEY 使用了默认值，这在生产环境中不安全！")
+    if settings.admin_password == "admin123":
+        warnings.warn(
+            "ADMIN_PASSWORD 使用了默认值，请在 .env 中设置一个安全的密码！",
+            stacklevel=2,
+        )
+        logger.warning("ADMIN_PASSWORD 使用了默认值，这在生产环境中不安全！")
     return settings

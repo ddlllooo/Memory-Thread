@@ -24,21 +24,21 @@ def init_database():
     Base.metadata.create_all(bind=engine)
     print("数据库表创建完成")
 
-    # 创建默认管理员账户
+    # 创建管理员账户（从 .env 配置读取）
     db = SessionLocal()
     try:
-        print("正在创建默认管理员账户...")
+        print("正在创建管理员账户...")
         admin = User(
-            username="admin",
-            email="admin@example.com",
-            hashed_password=get_password_hash("admin123"),
+            username=settings.admin_username,
+            email=settings.admin_email,
+            hashed_password=get_password_hash(settings.admin_password),
             role="admin",
         )
         db.add(admin)
         db.commit()
-        print("默认管理员账户创建完成")
-        print("用户名: admin")
-        print("密码: admin123")
+        print("管理员账户创建完成")
+        print(f"用户名: {settings.admin_username}")
+        print("密码: 已从 .env 文件读取")
     finally:
         db.close()
 

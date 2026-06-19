@@ -1,0 +1,60 @@
+services:
+  # MySQL 数据库
+  db:
+    image: mysql:8.0
+    container_name: memory-thread-db
+    restart: unless-stopped
+    volumes:
+      - mysql_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: memory_thread
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # FastAPI 后端
+  app:
+    build: .
+    container_name: memory-thread-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+    env_file:
+      - .env.production
+    networks:
+      - app-network
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: memory-thread-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - app-network
+
+volumes:
+  mysql_data:
+  uploads_data:
+
+networks:
+  app-network:
+    driver: bridge
