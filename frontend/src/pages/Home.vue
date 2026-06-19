@@ -34,6 +34,10 @@ function goToPost(id: string) {
 function goToBlog() {
   router.push('/blog')
 }
+
+function reloadPage() {
+  window.location.reload()
+}
 </script>
 
 <template>
@@ -134,7 +138,7 @@ function goToBlog() {
         <!-- 错误状态 -->
         <div v-else-if="loadError" class="text-center py-12">
           <p class="text-sm mb-4" style="color: #8C7E74;">加载文章失败，请稍后重试</p>
-          <button class="btn-ghost text-sm" @click="location.reload()">重新加载</button>
+          <button class="btn-ghost text-sm" @click="reloadPage()">重新加载</button>
         </div>
 
         <!-- 非对称网格 -->

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { postsApi } from '@/api/posts'
 import { useScroll } from '@/composables/useScroll'
@@ -18,6 +18,12 @@ const sanitizedContent = computed(() =>
   post.value ? sanitizeHtml(post.value.content) : ''
 )
 
+// 监听滚动更新阅读进度
+watch(scrollY, (y) => {
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight
+  readProgress.value = docHeight > 0 ? Math.min(1, y / docHeight) : 0
+})
+
 onMounted(async () => {
   const id = route.params.id as string
   try {
@@ -29,15 +35,6 @@ onMounted(async () => {
     loading.value = false
   }
 })
-
-onUnmounted(() => {
-  // useScroll handles cleanup
-})
-
-function onScroll() {
-  const docHeight = document.documentElement.scrollHeight - window.innerHeight
-  readProgress.value = docHeight > 0 ? Math.min(1, scrollY.value / docHeight) : 0
-}
 
 function goBack() {
   router.push('/blog')

@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted, toValue, type Ref } from 'vue'
+import { ref, watch, onUnmounted, type Ref } from 'vue'
 
 /**
  * 数字滚动计数器
